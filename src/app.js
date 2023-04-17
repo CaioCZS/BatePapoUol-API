@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import express, { query } from "express"
+import express from "express"
 import cors from "cors"
 import joi from "joi"
 import { MongoClient, ObjectId } from "mongodb"
@@ -114,5 +114,21 @@ app.post("/messages", async (req, res) => {
 	}
 })
 
+app.post("/status" , async (req, res) =>{
+
+	const headerSchema = joi.object({
+		User: joi.string().required()
+	})
+	const validation = headerSchema.validate({User : req.headers.user})
+	if(validation.error) return res.sendStatus(404)
+
+	try{
+		const result =await db.collection("participants").updateOne({name: req.headers.user},{$set:{lastStatus:Date.now()}})
+		if(result.matchedCount === 0)return res.sendStatus(404)
+	}catch(err){
+		res.status(500).send(err.message)
+	}
+	res.sendStatus(200)
+})
 const PORT = 5000
 app.listen(PORT, console.log(`Servidor rodando Porta ${PORT}`))
