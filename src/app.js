@@ -130,5 +130,28 @@ app.post("/status" , async (req, res) =>{
 	}
 	res.sendStatus(200)
 })
+
+setInterval(async () =>{
+	const currentDate = Date.now()
+	const compareTime = currentDate - 15000
+	console.log("passou 15s")
+	try{
+		const participantsToDelete = await db.collection("participants").find({lastStatus:{$lt:compareTime}}).toArray()
+		await db.collection("participants").deleteMany({lastStatus:{$lt:compareTime}})
+		participantsToDelete.forEach(async(p) =>{
+			const exitMessage = { 
+				from: p.name,
+				to: "Todos",
+				text: "sai da sala...",
+				type: "status",
+				time: dayjs().format("HH:mm:ss")
+			}
+			await db.collection("messages").insertOne(exitMessage)
+		})
+	}catch(err){
+		console.log(err.message)
+	}
+},15*1000)
+
 const PORT = 5000
 app.listen(PORT, console.log(`Servidor rodando Porta ${PORT}`))
