@@ -21,6 +21,12 @@ try {
 }
 const db = mongoClient.db()
 
+const msgSchema = joi.object({
+	to: joi.string().required(),
+	text:joi.string().required(),
+	type:joi.string().required().valid("message","private_message")
+})
+
 app.get("/participants", async (req, res) => {
 	try {
 		const participants = await db.collection("participants").find().toArray()
@@ -83,11 +89,6 @@ app.get("/messages", async (req, res) => {
 })
 
 app.post("/messages", async (req, res) => {
-	const msgSchema = joi.object({
-		to: joi.string().required(),
-		text:joi.string().required(),
-		type:joi.string().required().valid("message","private_message")
-	})
 
 	const userSchema = joi.object({
 		User : joi.string().required()
@@ -114,6 +115,45 @@ app.post("/messages", async (req, res) => {
 	}
 })
 
+app.put("/messages/:ID_DA_MENSAGEM", async (req,res) => {
+	const {ID_DA_MENSAGEM} = req.params
+
+	const validation = msgSchema.validate(req.body)
+	if(validation.error) return res.sendStatus(422)
+	
+	try{
+		const user = await db.collection("participants").findOne({name :req.headers.user})
+		if(!user) return res.sendStatus(422)
+
+		const toUpdate = await db.collection("messages").findOne({_id:new ObjectId(ID_DA_MENSAGEM)})
+		if(!toUpdate)return res.sendStatus(404)
+		if(toUpdate.from !== req.headers.user)return res.sendStatus(401)
+		await db.collection("messages").updateOne({_id:new ObjectId(ID_DA_MENSAGEM)},{ $set: req.body })
+
+	}catch(err){
+		res.status(500).send(err.message)
+	}
+	res.sendStatus(200)
+})
+
+app.delete("/messages/:ID_DA_MENSAGEM", async (req,res) => {
+	const {ID_DA_MENSAGEM} = req.params
+	const { user } = req.headers
+
+	
+	try{
+		const toDelete = await db.collection("messages").findOne({_id:new ObjectId(ID_DA_MENSAGEM)})
+		if(!toDelete)return res.sendStatus(404)
+		if(toDelete.from !== user)return res.sendStatus(401)
+		await db.collection("messages").deleteOne({_id:new ObjectId(ID_DA_MENSAGEM)})
+	}catch(err){
+		res.status(500).send(err.message)	
+	}
+	res.sendStatus(200)
+})
+
+
+
 app.post("/status" , async (req, res) =>{
 
 	const headerSchema = joi.object({
@@ -134,7 +174,6 @@ app.post("/status" , async (req, res) =>{
 setInterval(async () =>{
 	const currentDate = Date.now()
 	const compareTime = currentDate - 15000
-	console.log("passou 15s")
 	try{
 		const participantsToDelete = await db.collection("participants").find({lastStatus:{$lt:compareTime}}).toArray()
 		await db.collection("participants").deleteMany({lastStatus:{$lt:compareTime}})
