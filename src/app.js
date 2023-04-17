@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import express from "express"
+import express, { query } from "express"
 import cors from "cors"
 import joi from "joi"
 import { MongoClient, ObjectId } from "mongodb"
@@ -63,8 +63,19 @@ app.post("/participants", async (req, res) => {
 })
 
 app.get("/messages", async (req, res) => {
+	const { user } = req.headers
+	const { limit } = req.query
+
+	const queryShema = joi.object({
+		limit: joi.number().min(1).positive()
+	})
+	const validation = queryShema.validate(req.query)
+	if(validation.error || !user )return res.sendStatus(422)
 	try {
-		const messages = await db.collection("messages").find().toArray()
+		const messages = await db.collection("messages").find({$or:[{to:"Todos"},{from:user},{type:"message"},{to:user}]}).toArray()
+		if(limit){
+			return res.send(messages.slice(-limit))
+		}
 		res.send(messages)
 	} catch (err) {
 		res.status(500).send(err.message)
@@ -102,4 +113,6 @@ app.post("/messages", async (req, res) => {
 		res.status(500).send(err.message)
 	}
 })
-app.listen(5000, console.log("Servidor rodando Porta 5000"))
+
+const PORT = 5000
+app.listen(PORT, console.log(`Servidor rodando Porta ${PORT}`))
