@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import express from "express"
 import cors from "cors"
 import joi from "joi"
@@ -45,13 +44,15 @@ app.post("/participants", async (req, res) => {
 
 	const validation = nameSchema.validate(req.body)
 	if (validation.error) return res.sendStatus(422)
-
 	try {
 		const user = await db.collection("participants").findOne({ name })
 		if (user) return res.sendStatus(409)
+
+		const timeStemp = Date.now()
+
 		await db.collection("participants").insertOne({
 			name,
-			lastStatus: Date.now(),
+			lastStatus: timeStemp,
 		})
 
 		await db.collection("messages").insertOne({
@@ -59,7 +60,7 @@ app.post("/participants", async (req, res) => {
 			to: "Todos",
 			text: "entra na sala...",
 			type: "status",
-			time: dayjs().format("HH:mm:ss"),
+			time: dayjs(timeStemp).format("HH:mm:ss"),
 		})
 
 		res.sendStatus(201)
@@ -152,8 +153,6 @@ app.delete("/messages/:ID_DA_MENSAGEM", async (req,res) => {
 	res.sendStatus(200)
 })
 
-
-
 app.post("/status" , async (req, res) =>{
 
 	const headerSchema = joi.object({
@@ -173,7 +172,7 @@ app.post("/status" , async (req, res) =>{
 
 setInterval(async () =>{
 	const currentDate = Date.now()
-	const compareTime = currentDate - 15000
+	const compareTime = currentDate - 10000
 	try{
 		const participantsToDelete = await db.collection("participants").find({lastStatus:{$lt:compareTime}}).toArray()
 		await db.collection("participants").deleteMany({lastStatus:{$lt:compareTime}})
@@ -183,7 +182,7 @@ setInterval(async () =>{
 				to: "Todos",
 				text: "sai da sala...",
 				type: "status",
-				time: dayjs().format("HH:mm:ss")
+				time: dayjs(currentDate).format("HH:mm:ss")
 			}
 			await db.collection("messages").insertOne(exitMessage)
 		})
